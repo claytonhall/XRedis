@@ -6,39 +6,80 @@ using System.Threading.Tasks;
 
 namespace RedistestConsole
 {
-    public class WorkArea<T> : IWorkAreaBuilder<T>
+    public class WorkArea<T> : IWorkArea<T>
         where T : new()
     {
-        Table<T> _table = new Table<T>();
-        Table<T> Table { get { return _table; } }
-        Index<T> SelectedIndex { get; set; }
+        Table<T> _table;
 
-        public IWorkAreaBuilder<T> Alias(string aliasName)
+        public WorkArea()
         {
-            throw new NotImplementedException();
         }
 
-        public IWorkAreaBuilder<T> In(string aliasName)
+        public WorkArea(Table<T> table)
         {
-            XContext.Instance.Select(aliasName);
-            return this;
+            _table = table;
         }
 
-        public IWorkAreaBuilder<T> In(int workAreaNumber)
+        public Table<T> Table
         {
-            XContext.Instance.Select(workAreaNumber);
-            return this;
+            get
+            {
+                return _table;
+            }
         }
 
-        public IWorkAreaBuilder<T> Tag(string tagName)
+        public string Alias { get; set; }
+        public Index<T> SelectedIndex { get; set; }
+        public T CurrentRecord { get; internal set; }
+        public bool Found { get; internal set; }
+
+        public bool Eof { get; internal set; }
+
+        public bool Bof { get; internal set; }
+
+        public List<Index<T>> Indexes
         {
-            SelectedIndex = this.Table.Indexes.Single(i => i.Name.ToUpper() == tagName.ToUpper());
-            return this;
+            get
+            {
+                return _table.Indexes;
+            }
+
+            set
+            {
+                _table.Indexes = value;
+            }
         }
 
-        public IWorkAreaBuilder<T> Use()
+        public string TableName
         {
-            return new WorkArea<T>();    
+            get
+            {
+                return _table.TableName;
+            }
+
+            set
+            {
+                _table.TableName = value;
+            }
+        }
+
+        internal T ScatterInternal()
+        {
+            var serialzied = Newtonsoft.Json.JsonConvert.SerializeObject(this.CurrentRecord);
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(serialzied);
+        }
+
+        public void Skip()
+        {
+            this.Skip(1);
+        }
+
+        public void Skip(int i)
+        {
+            if(this.SelectedIndex != null)
+            {
+
+            }
         }
     }
 }

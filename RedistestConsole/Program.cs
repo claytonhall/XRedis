@@ -20,29 +20,31 @@ namespace RedistestConsole
         static ConnectionMultiplexer connectionMultiplexer = ConnectionMultiplexer.Connect("localhost:6379");
         static ICacheClient cacheClient = new StackExchangeRedisCacheClient(connectionMultiplexer, serializer);
 
-        public static Table<T> Use<T>(Table<T> table)
+        public static WorkArea<T> Use<T>(Table<T> table)
             where T : class, new()
         {
-            var newTable = new Table<T>();
-            newTable.TableName = table.TableName;
-            foreach (var index in table.Indexes)
-            {
-                newTable.Indexes.Add(index);
-            }
-
-            return newTable;
+            return new WorkArea<T>(table);
         }
 
-        public static Table<T> In<T>(this Table<T> table, string workAreaName)
+        public static WorkArea<T> In<T>(this WorkArea<T> workArea, string workAreaName)
+            where T : new()
         {
-            table.Alias = workAreaName;
-            return table;
+            workArea.Alias = workAreaName;
+            return workArea;
         }
 
-        public static Table<T> Tag<T>(this Table<T> table, string tagName)
+        public static WorkArea<T> Tag<T>(this WorkArea<T> workArea, string tagName)
+            where T : new()
         {
-            table.SelectedIndex = table.Indexes.Single(i => i.Tag == tagName);
-            return table;
+            workArea.SelectedIndex = workArea.Indexes.Single(i => i.Tag == tagName);
+            return workArea;
+        }
+
+        public static WorkArea<T> SetOrderTo<T>(this WorkArea<T> workArea, string tagName)
+            where T : new()
+        {
+            workArea.SelectedIndex = workArea.Indexes.Single(i => i.Tag == tagName);
+            return workArea;
         }
 
         public static Index<T> Index<T>(this Table<T> table)
@@ -50,16 +52,12 @@ namespace RedistestConsole
             Index<T> index = new Index<T>();
             table.Indexes.Add(index);
             return index;
-            //table.SelectedIndex = table.Indexes.Single(i => i.Tag == tagName);
-            //return table;
         }
 
         public static Index<T> On<T>(this Index<T> index, Func<T, string> expression)
         {
             index.Expressions.Add(expression);
             return index;
-            //table.SelectedIndex = table.Indexes.Single(i => i.Tag == tagName);
-            //return table;
         }
 
         public static Index<T> Tag<T>(this Index<T> index, string tagName)
@@ -68,56 +66,59 @@ namespace RedistestConsole
             return index;
         }
 
-        public static void Select<T>(Table<T> table, Action<Table<T>> action)
+        public static void Select<T>(WorkArea<T> workArea, Action<WorkArea<T>> action)
+            where T : new()
         {
-            action.Invoke(table);
+            action.Invoke(workArea);
         }
 
 
-        public static void Seek<T>(this Table<T> table, string expression)
+        public static void Seek<T>(this WorkArea<T> workArea, string expression)
+            where T : new()
         {
             var db = connectionMultiplexer.GetDatabase();
-            var values = db.SortedSetRangeByValue( String.Format("{0}:{1}:{2}", table.TableName, table.SelectedIndex.Tag, expression ));
+            RedisValue[] values = db.SortedSetRangeByValue( String.Format("{0}:{1}", workArea.TableName, workArea.SelectedIndex.Tag ), min:expression, take:1);
             if (values.Length > 0)
             {
                 var pieces = values[0].ToString().Split(':');
                 var key = pieces[pieces.Length - 1];
 
-                table.Found = true;
-                table.CurrentRecord = cacheClient.Get<T>(String.Format("{0}:{1}", table.TableName, key));
+                workArea.Found = true;
+                workArea.CurrentRecord = db.HashGetAll(String.Format("{0}:{1}", workArea.TableName, key)).ToRecord<T>();
             }
             else
             {
-                table.Found = false;
+                workArea.Found = false;
+                workArea.CurrentRecord = new T();
             }
         }
 
-        public static void AppendBlank<T>(this Table<T> table)
+        public static void AppendBlank<T>(this WorkArea<T> workArea)
             where T : new()
         {
             var record = new T();
             var db = connectionMultiplexer.GetDatabase();
-            var id = table.IncrementKey();
+            var id = workArea.Table.IncrementKey();
             record.SetID(id);
-            db.HashSet(String.Format("{0}:{1}", table.TableName, id), record.ToHashEntries());
+            db.HashSet(String.Format("{0}:{1}", workArea.TableName, id), record.ToHashEntries());
 
-            table.CurrentRecord = record;
+            workArea.CurrentRecord = record;
         }
 
-        public static void Gather<T>(this Table<T> table, T record)
+        public static void Gather<T>(this WorkArea<T> workArea, T record)
             where T : new()
         {
             var db = connectionMultiplexer.GetDatabase();
 
-            long id = table.CurrentRecord.GetID();
+            long id = workArea.CurrentRecord.GetID();
             if (id == 0)
             {
-                id = table.IncrementKey();
-                record.SetID(id);
+                id = workArea.Table.IncrementKey();
             }
+            record.SetID(id);
 
-            db.HashSet(String.Format("{0}:{1}", table.TableName, id), record.ToHashEntries());
-            table.UpdateIndex(record);
+            db.HashSet(String.Format("{0}:{1}", workArea.TableName, id), record.ToHashEntries());
+            workArea.Table.UpdateIndex(record);
         }
 
 
@@ -130,6 +131,7 @@ namespace RedistestConsole
 
         private static void UpdateIndex<T>(this Table<T> table, T record)
         {
+            long recordID = record.GetID();
             var db = connectionMultiplexer.GetDatabase();
             foreach (var index in table.Indexes)
             {
@@ -143,21 +145,69 @@ namespace RedistestConsole
                     }
                     value += exp.Invoke(record);
                 }
-                value += ":" + record.GetID().ToString();
+                value += ":" + recordID.ToString();
+
                 string indexKey = String.Format("{0}:{1}", table.TableName, index.Tag);
+                string indexToIndexKey = String.Format("{0}:{1}:{2}", table.TableName, index.Tag, recordID);
+
+                string previousIndexValue = db.StringGet(indexToIndexKey);
+
+                if (previousIndexValue != null && previousIndexValue != value)
+                {
+                    db.SortedSetRemove(indexKey, previousIndexValue);
+                }
+
+                db.StringSet(indexToIndexKey, value);
                 db.SortedSetAdd(indexKey, value, 0);
             }
         }
 
 
-
-
-        public static T Scatter<T>(this Table<T> table)
+        public static void Scan<T>(this WorkArea<T> workArea, Action<WorkArea<T>> action)
+            where T : new()
         {
-            return table.ScatterInternal();
+            action.Invoke(workArea);
         }
 
-             
+        public static ScanBuilder<T> Scan<T>(this WorkArea<T> workArea)
+            where T : new()
+        {
+            return new ScanBuilder<T>(workArea);
+        }
+
+        public static void For<T>(this ScanBuilder<T> builder, 
+            Func<WorkArea<T>, bool> func,
+            Action<WorkArea<T>> workArea)
+            where T : new()
+        {
+            while (!workArea.Eof())
+            {
+                if (func(builder.WorkArea))
+                {
+                    builder.Invoke();
+                }
+                workArea.Skip();
+            }
+        }
+
+
+        public static T Scatter<T>(this WorkArea<T> workArea)
+            where T : new()
+        {
+            return workArea.ScatterInternal();
+        }
+
+        static T ToRecord<T>(this HashEntry[] hashEntries)
+            where T : new()
+        {
+            var record = new T();
+            foreach (var hashEntry in hashEntries)
+            {
+                var propertyInfo = typeof(T).GetProperty(hashEntry.Name);
+                propertyInfo.SetValue(record, Convert.ChangeType(hashEntry.Value, propertyInfo.PropertyType));
+            }
+            return record;
+        }
 
         static HashEntry[] ToHashEntries<T>(this T record)
         {
@@ -216,81 +266,64 @@ namespace RedistestConsole
         }
 
 
-    }
-
-    public static class XContext
-    {
-        public static Table<Person> Persons = new Table<Person>("Persons");
-
-        static XContext()
+        public static string CurrentRecordKey<T>(this WorkArea<T> workArea)
+            where T : new()
         {
-            Func<Person, string> func = new Func<Person, string>((Person p) => { return p.LastName.ToUpper(); });
-            Persons.Index().On(func).Tag("LastName");
-        }
-    }
-
-    public class Table<T> : ITable<T>
-    {
-        List<Index<T>> _indexes = new List<Index<T>>();
-
-        public string TableName { get; set; }
-
-        public Table() { }
-
-        public Table(string tableName)
-        {
-            this.TableName = tableName;
+            long id = workArea.CurrentRecord.GetID();
+            return String.Format("{0}:{1}", workArea.TableName, id);
         }
 
-        public string Alias { get; set; }
-
-        public List<Index<T>> Indexes { get { return _indexes; } set { _indexes = value; } }
-        public Index<T> SelectedIndex { get; set; }
-        public T CurrentRecord { get; internal set; }
-        public bool Found { get; internal set; }
-
-
-        internal T ScatterInternal()
+        public static string NextRecordKey<T>(this WorkArea<T> workArea)
+            where T : new()
         {
-            return (T)this.MemberwiseClone();
+            long id = workArea.CurrentRecord.GetID();
+            id++;
+            return String.Format("{0}:{1}", workArea.TableName, id);
         }
 
-    }
 
-    public interface ITable
-    {
-        string Alias { get; set; }
-        string TableName { get; set; }
-    }
+        public static void Skip<T>(this WorkArea<T> workArea)
+            where T : new()
+        {
+            var db = connectionMultiplexer.GetDatabase();
+            if (workArea.SelectedIndex == null)
+            {
+                var propertyName = workArea.CurrentRecord.GetIDProperty().Name;
+                var key = workArea.NextRecordKey();
+                var maxID = db.StringIncrement(String.Format("Table:{0}", workArea.TableName));
+                bool eof = true;
+                while (workArea.CurrentRecord.GetID() <= maxID)
+                {
+                    workArea.NextRecordKey();
+                    if (db.HashExists(key, propertyName))
+                    {
+                        eof = false;
+                        break;
+                    }
+                    else
+                    {
+                        key = workArea.NextRecordKey();
+                        //am i eof?
+                    }
+                }
+                if (!eof)
+                {
+                    workArea.CurrentRecord = db.HashGetAll(key).ToRecord<T>();
+                }
+                workArea.Eof = eof;
+            }
+            else
+            {
+            }
+        }
 
-    public interface ITable<T> : ITable
-    {
-        List<Index<T>> Indexes { get; set; }
-        Index<T> SelectedIndex { get; set; }
-        T CurrentRecord { get; }
-    }
-
-    public class Index<T> : IIndex
-    {
-        List<Func<T, string>> _expressions = new List<Func<T, string>>();
-
-        public string Tag { get; set; }
-
-        public List<Func<T, string>> Expressions { get { return _expressions; } set { _expressions = value; } }
-    }
-
-    public interface IIndex
-    {
-        string Tag { get; set; }
-
-        //List<Func<object, string>> Expressions { get; set; }
     }
 
     class Program
     {
         static void Main(string[] args)
         {
-            var lines = File.ReadAllLines(@"c:\temp\testnames.txt");
+            var lines = File.ReadAllLines(@"c:\temp\testdata.txt");
 
 
             var persons = Use(Persons).In("myAlias");
@@ -304,74 +337,22 @@ namespace RedistestConsole
                 person.LastName = fields[1];
                 person.Social = fields[2];
 
-
                 persons.AppendBlank();
                 persons.Gather(person);
             }
 
+            persons.SetOrderTo("SSN");
+
+            persons.Seek("33");
+            if (persons.Found)
+            {
+                var p = persons.Scatter();
+                p.LastName = "Test";
+                persons.Gather(p);
+            }
+
             Console.WriteLine("Press any key to exit...");
             Console.ReadKey();
-
-
-            //Select(persons, p=>
-            //{
-            //    p.Seek("Hall");
-            //    if (p.Found)
-            //    {
-            //        Console.WriteLine("dsfsadf");
-            //    }
-            //});
-
-            //var person = Use(Persons.In(0).Tag("LastName"));
-            //var person = Use<Person>();
-            //person.SetOrderTo("LastName");
-
-            //person.Seek("Hall");
-            ////person.Seek()
-
-            //var serializer = new NewtonsoftSerializer();
-            //var connectionMultiplexer = ConnectionMultiplexer.Connect("localhost:6379");
-            //var cacheClient = new StackExchangeRedisCacheClient(connectionMultiplexer, serializer);
-
-            //var person = new Person()
-            //{
-            //    ID = 1,
-            //    FirstName = "Clayton",
-            //    LastName = "Hall",
-            //    Social = "333-33-3333"
-            //};
-
-            //cacheClient.Add(person.ID.ToString(), person);
-
-            //var personReturend = cacheClient.Get<Person>(person.ID.ToString());
-
-            //Console.WriteLine("{0} {1} {2} {3}", personReturend.ID, personReturend.FirstName, personReturend.LastName, personReturend.Social);
-
-            //var db = connectionMultiplexer.GetDatabase();
-            //var indexValue = String.Format(person.FirstName + ":" + person.ID.ToString());
-            ////var x = new SortedSetEntry(, 0);
-            //db.SortedSetAdd("PersonFirstNameIndex", indexValue, 0, CommandFlags.FireAndForget);
-
-            ////db.SortedSetRangeByScore("PersonFirstNameIndex", );
-
-            Console.WriteLine("Press any key to continue...");
-            Console.ReadKey();
-
-
-            //var context = new XContext("localhost:6379");
-            //context.Select(0);
-            //context.Use<Person>()
         }
     }
-
-    
-    
-
-
-
-
-
-
-
-
 }

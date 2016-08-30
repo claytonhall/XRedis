@@ -6,10 +6,23 @@ using System.Threading.Tasks;
 
 namespace RedistestConsole
 {
-    public interface IWorkArea
+    interface IWorkArea
     {
-        Type Type { get; }
-
         string Alias { get; set; }
+        bool Found { get; }
+        bool Eof { get; }
+        bool Bof { get; }
+    }
+
+    interface IWorkArea<T> : ITable<T>, IWorkArea
+    {
+        Index<T> SelectedIndex { get; set; }
+        T CurrentRecord { get; }
+
+        void Skip();
+
+        void Skip(int i);
+
+      
     }
 }

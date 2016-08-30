@@ -6,45 +6,12 @@ using System.Threading.Tasks;
 
 namespace RedistestConsole
 {
-    public class Index<T> : IIndexBuilder<T>
+    public class Index<T> : IIndex
     {
-        public Index()
-        {
-        }
+        List<Func<T, string>> _expressions = new List<Func<T, string>>();
 
-        public Index(IIndexBuilder<T> builder)
-        {
-            this.Name = builder.Name;
-            this.Expressions = builder.Expressions;
-        }
-        
-        public string Name { get; set; }
+        public string Tag { get; set; }
 
-        public IEnumerable<Func<T, string>> Expressions { get; set; }
-
-        public IIndexBuilder<T> CreateIndex()
-        {
-            return this;
-        }
-
-        public IIndexBuilder<T> On(IEnumerable<Func<T, string>> expression)
-        {
-            this.Expressions = expression;
-            return this;
-        }
-
-        internal void Seek(string indexKey)
-        {
-        }
-
-        public IIndexBuilder<T> Tag(string tagName)
-        {
-            this.Name = tagName;
-            return this;
-        }
-
-        internal void Skip(int step)
-        {
-        }
+        public List<Func<T, string>> Expressions { get { return _expressions; } set { _expressions = value; } }
     }
 }
