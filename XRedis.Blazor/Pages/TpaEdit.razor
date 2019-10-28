@@ -1,0 +1,45 @@
+﻿@page "/tpaedit"
+@using System.Transactions
+@using XRedis.Blazor.Data
+@using XRedis.Core
+@using XRedis.Data
+@inject NavigationManager NavigationManager
+
+<h1>Tpas!!</h1>
+@using (var scope = new TransactionScope())
+{
+
+    <label for="Name">Name:</label>
+    <input id="Name" @bind="_tpaName" />
+    <button class="btn-secondary" @onclick="Cancel">Cancel</button>
+    <button class="btn-primary" @onclick="Save">Save</button>
+}
+
+@code 
+{
+    string _tpaName;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+
+    protected void Save()
+    {
+        using (var scope = new TransactionScope())
+        {
+            var context = new DemoContext(new XRedisConnection("localhost:6379,allowadmin=true"));
+            context.Tpas.New(tpa =>
+            {
+                tpa.Name = _tpaName;
+            });
+            scope.Complete();
+        }
+        NavigationManager.NavigateTo("/tpalist");
+    }
+
+    protected void Cancel()
+    {
+        NavigationManager.NavigateTo("/tpalist");
+    }
+}

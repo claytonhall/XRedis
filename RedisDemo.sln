@@ -1,9 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29403.142
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedistestConsole", "RedistestConsole\RedistestConsole.csproj", "{73266A0F-AE9F-470D-B11D-DD9BAC17E65A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XRedis.Core", "XRedis.Core\XRedis.Core.csproj", "{35768A39-C643-4E44-B642-5CE25AFCD4FD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XRedis.Demo", "XRedis.Demo\XRedis.Demo.csproj", "{C8559A3E-DDA5-4215-AC37-905FC1C03F95}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XRedis.Data", "XRedis.Data\XRedis.Data.csproj", "{A920259D-A9D9-4421-8D53-7E837FDDE7B2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XRedis.Blazor", "XRedis.Blazor\XRedis.Blazor.csproj", "{77AB971F-3547-4BBE-AF28-AD787C1824B9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XRedis.Core.Tests", "XRedis.Core.Tests\XRedis.Core.Tests.csproj", "{DE4F9C43-1601-4C89-B82A-049A2C164321}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,12 +19,31 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{73266A0F-AE9F-470D-B11D-DD9BAC17E65A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{73266A0F-AE9F-470D-B11D-DD9BAC17E65A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{73266A0F-AE9F-470D-B11D-DD9BAC17E65A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{73266A0F-AE9F-470D-B11D-DD9BAC17E65A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35768A39-C643-4E44-B642-5CE25AFCD4FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35768A39-C643-4E44-B642-5CE25AFCD4FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35768A39-C643-4E44-B642-5CE25AFCD4FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35768A39-C643-4E44-B642-5CE25AFCD4FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8559A3E-DDA5-4215-AC37-905FC1C03F95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8559A3E-DDA5-4215-AC37-905FC1C03F95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8559A3E-DDA5-4215-AC37-905FC1C03F95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8559A3E-DDA5-4215-AC37-905FC1C03F95}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A920259D-A9D9-4421-8D53-7E837FDDE7B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A920259D-A9D9-4421-8D53-7E837FDDE7B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A920259D-A9D9-4421-8D53-7E837FDDE7B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A920259D-A9D9-4421-8D53-7E837FDDE7B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77AB971F-3547-4BBE-AF28-AD787C1824B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77AB971F-3547-4BBE-AF28-AD787C1824B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77AB971F-3547-4BBE-AF28-AD787C1824B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77AB971F-3547-4BBE-AF28-AD787C1824B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE4F9C43-1601-4C89-B82A-049A2C164321}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE4F9C43-1601-4C89-B82A-049A2C164321}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE4F9C43-1601-4C89-B82A-049A2C164321}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE4F9C43-1601-4C89-B82A-049A2C164321}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A2E6C741-0A82-4B78-AFC6-F17B356378DE}
 	EndGlobalSection
 EndGlobal

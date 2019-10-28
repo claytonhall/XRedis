@@ -1,0 +1,62 @@
+﻿@page "/tpalist"
+@using System.Transactions
+
+@using XRedis.Blazor.Data
+@using XRedis.Core
+@inject NavigationManager NavigationManager
+
+<h1>Tpas!!</h1>
+@using (var scope = new TransactionScope())
+{
+    <label for="Search">Search:</label>
+    <input @bind="_searchText" @onblur="Search" />
+    <button @onclick="AddTpa">Add New</button>
+    <table>
+        <thead>
+        <td>TpaId</td>
+        <td>Name</td>
+        </thead>
+
+        @foreach (var tpa in _tpas)
+        {
+            <tr>
+                <td>@tpa.TpaId</td>
+                <td>@tpa.Name</td>
+            </tr>
+        }
+
+    </table>
+}
+
+@code {
+    string _searchText;
+    List<Tpa> _tpas;
+    protected override async Task OnInitializedAsync()
+    {
+        _tpas = new List<Tpa>();
+        Search();
+    }
+
+    protected void Search()
+    {
+        var context = new DemoContext(new XRedisConnection("localhost:6379,allowadmin=true"));
+        
+
+        @using (var scope = new TransactionScope())
+        {
+            var searchText = _searchText ?? "";
+            var tpas = context.Tpas.OrderBy("Name");
+            tpas.Seek(searchText);
+            while (tpas.CurrentRecord?.Name?.StartsWith(searchText) ?? false)
+            {
+                _tpas.Add(tpas.CurrentRecord);
+                tpas.SkipX();
+            }
+        }
+    }
+
+    protected void AddTpa()
+    {
+        NavigationManager.NavigateTo("/tpaedit");
+    }
+}

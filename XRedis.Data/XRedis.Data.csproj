@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="OrderDetail.cs" />
+    <Compile Remove="Product.cs" />
+    <Compile Remove="ShippingMethod.cs" />
+    <Compile Remove="ShippingRate.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XRedis.Core\XRedis.Core.csproj" />
+  </ItemGroup>
+
+</Project>
