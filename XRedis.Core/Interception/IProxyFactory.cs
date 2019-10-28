@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using XRedis.Core.Keys;
 
 namespace XRedis.Core.Interception
 {
     public interface IProxyFactory
     {
-        //object CreateClassProxy(Type type);
-
-        T CreateClassProxy<T>()
-            where T : class, IRecord;
+        TRecord CreateClassProxy<TRecord, TKey>()
+            where TRecord: class, IRecord<TKey>;
     }
 }

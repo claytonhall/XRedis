@@ -18,27 +18,27 @@ namespace XRedis.Core
         TParent ParentRecord { get; set; }
     }
 
-    public interface IRecordSet<TRecord, TParent> : IRecordSet<TRecord>, IRecordSetWithParent<TParent>
+    public interface IRecordSet<TRecord, TKey, TParent, TParentKey> : IRecordSet<TRecord, TKey>, IRecordSetWithParent<TParent>
     {
         //Index ParentRelationIndex { get; }
     }
 
 
-    public interface IRecordSet<T> : IEnumerable<T>, IRecordSet
+    public interface IRecordSet<TRecord, TKey> : IEnumerable<TRecord>, IRecordSet
     {
-        T New(Action<T> setter = null);
+        TRecord New(Action<TRecord> setter = null);
 
-        T Add(T record);
+        TRecord Add(TRecord record);
 
-        T Seek(object value);
+        TRecord Seek(object value);
 
-        void Delete(T objKey);
+        void Delete(TRecord objKey);
         
-        IRecordSet<T> OrderBy(string indexTag);
+        IRecordSet<TRecord, TKey> OrderBy(string indexTag);
 
-        T CurrentRecord { get; }
+        TRecord CurrentRecord { get; }
         void SkipX(int i = 1);
 
-        IRecordSetEnumerator<T> Enumerator { get; }
+        IRecordSetEnumerator<TRecord, TKey> Enumerator { get; }
     }
 }

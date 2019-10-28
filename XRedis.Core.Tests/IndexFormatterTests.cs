@@ -10,6 +10,7 @@ namespace XRedis.Core.Tests
     {
         class MockRecord : IRecord
         {
+            public long MockId { get; set; }
             public string FirstName { get; set; }
             public string LastName { get; set; }
         }

@@ -8,8 +8,8 @@ namespace XRedis.Data
     {
         public TestContext(IXRedisConnection xredisConnection) : base(xredisConnection)
         {
-            this.Companies = this.CreateRecordSet<Company>();
-            this.Associates = this.CreateRecordSet<Associate>();
+            this.Companies = this.CreateRecordSet<Company, long>();
+            this.Associates = this.CreateRecordSet<Associate, long>();
             //this.Orders = this.CreateRecordSet<Order>();
             //this.OrderDetails = this.CreateRecordSet<OrderDetail>();
             //this.Products = this.CreateRecordSet<Product>();
@@ -17,9 +17,9 @@ namespace XRedis.Data
             //this.ShippingRates = this.CreateRecordSet<ShippingRate>();
         }
 
-        public virtual IRecordSet<Company> Companies { get; set; }
+        public virtual IRecordSet<Company, long> Companies { get; set; }
 
-        public virtual IRecordSet<Associate> Associates { get; set; }
+        public virtual IRecordSet<Associate, long> Associates { get; set; }
         //public virtual IRecordSet<Order> Orders { get; set; }
         //public virtual IRecordSet<OrderDetail> OrderDetails { get; set; }
         //public virtual IRecordSet<Product> Products { get; set; }

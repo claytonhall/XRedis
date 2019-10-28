@@ -23,25 +23,27 @@ namespace XRedis.Core.Extensions
         //    return key;
         //}
 
-        public static RecordKey GetRecordKey(this IRecord record, Id id)
+        public static RecordKey GetRecordKey(this IRecord record, IId id)
         {
             var key = new RecordKey(record, id);
             return key;
         }
 
-        public static RecordKey GetRecordKey(this IRecord record)
+        public static RecordKey GetRecordKey<TRecord, TKey>(this TRecord record)
+            where TRecord : class, IRecord<TKey>
         {
-            var key = new RecordKey(record);
+            var key = RecordKey.Create<TRecord, TKey>(record);
+            //new RecordKey(record);
             return key;
         }
 
-        public static RecordKey GetRecordKey(this Type type, Id id)
+        public static RecordKey GetRecordKey(this Type type, IId id)
         {
             var key = new RecordKey(type, id);
             return key;
         }
 
-        public static VersionReferenceKey GetVersionTrackerKey(this RecordKey recordKey)
+        public static VersionReferenceKey GetVersionReferenceKey(this RecordKey recordKey)
         {
             var key = new VersionReferenceKey(recordKey);
             return key;

@@ -5,24 +5,41 @@ using System.Text;
 
 namespace XRedis.Core
 {
-    public struct Id
-    {
-        public object Value { get; }
 
-        public Id(object value)
+    public interface IId
+    {
+        object Value { get; }
+
+        string ToSortableString();
+    }
+
+    public struct Id<T> : IId
+    {
+        public T Value { get; }
+
+        object IId.Value => Value;
+
+        public Id(T value)
         {
             this.Value = value;
         }
 
-        public static implicit operator long(Id id)
+        public static Id<T> Parse(string s)
         {
-            return (long?) id.Value ?? default;
+            var converter = TypeDescriptor.GetConverter(typeof(T));
+            var value = (T)converter.ConvertFrom(s);
+            return new Id<T>(value);
         }
 
-        public static implicit operator int(Id id)
-        {
-            return (int?) id.Value ?? default;
-        }
+        //public static implicit operator long(Id<T> id)
+        //{
+        //    return (long?) id.Value ?? default;
+        //}
+
+        //public static implicit operator int(Id<T> id)
+        //{
+        //    return (int?) id.Value ?? default;
+        //}
 
         public override string ToString() => Value.ToString();
 

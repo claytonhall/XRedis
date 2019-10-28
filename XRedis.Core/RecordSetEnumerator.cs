@@ -10,15 +10,15 @@ using Index = XRedis.Core.Fields.Indexes.Index;
 
 namespace XRedis.Core
 {
-    public interface IRecordSetEnumerator<TRecord> : IEnumerator<TRecord>
+    public interface IRecordSetEnumerator<TRecord, TKey> : IEnumerator<TRecord>
     {
         Index Index { get; set; }
         void SetFilter(RecordSetFilter filter, Index index);
         void Seek(object value);
     }
 
-    public class RecordSetEnumerator<TRecord> : IRecordSetEnumerator<TRecord>
-        where TRecord : class, IRecord
+    public class RecordSetEnumerator<TRecord, TKey> : IRecordSetEnumerator<TRecord, TKey>
+        where TRecord : class, IRecord<TKey>
     {
         private readonly IProxyFactory _proxyFactory;
         private readonly IResourceManagerFactory _resourceManagerFactory;
@@ -53,8 +53,8 @@ namespace XRedis.Core
             {
                 if (_currentIndexValue == null) return null;
 
-                Id id = _currentIndexValue.VersionedRecordKey.Id;
-                var record = _proxyFactory.CreateClassProxy<TRecord>();
+                IId id = _currentIndexValue.VersionedRecordKey.Id;
+                var record = _proxyFactory.CreateClassProxy<TRecord, TKey>();
                 record.SetID(id);
                 return record;
             }

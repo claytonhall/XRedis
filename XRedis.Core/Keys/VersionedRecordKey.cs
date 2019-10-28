@@ -33,11 +33,11 @@ namespace XRedis.Core.Keys
             Version = version;
         }
 
-        public VersionedRecordKey(Type tableType, Id id, long version) : this(new RecordKey(tableType,id), version) { }
+        public VersionedRecordKey(Type tableType, IId id, long version) : this(new RecordKey(tableType,id), version) { }
 
-        public VersionedRecordKey(IRecord record, Id id, long version) : this(record.GetType().GetUnproxiedType(), id, version) { }
+        public VersionedRecordKey(IRecord record, IId id, long version) : this(record.GetType().GetUnproxiedType(), id, version) { }
 
-        public VersionedRecordKey(IRecord record, long version) : this(record, record.GetID(), version) { }
+        //public VersionedRecordKey(IRecord record, long version) : this(record, record.GetID(), version) { }
 
 
         public long Version { get; set; }
@@ -46,7 +46,7 @@ namespace XRedis.Core.Keys
 
         public string TableType { get { return RecordKey.TableType; } }
 
-        public Id Id { get { return RecordKey.Id; } }
+        public IId Id { get { return RecordKey.Id; } }
 
 
         public override int GetHashCode()

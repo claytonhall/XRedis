@@ -26,16 +26,17 @@ namespace XRedis.Core.Fields
 
         public string Name => PropertyInfo.Name;
 
-        public Id GetValue(IRecord record)
+        public IId GetValue<TRecord, TKey>(TRecord record)
+            where TRecord : class, IRecord<TKey>
         {
+            return record.GetIDValue<TRecord, TKey>(this);
             //return new Id(record.GetType().GetProperty(PropertyInfo.Name)?.GetValue(record));
-            return record.GetIDValue(this);
+            //return record.GetIDValue(this);
         }
 
-        public void SetValue(IRecord record, Id id)
+        public void SetValue(IRecord record, IId id)
         {
             record.SetIDValue(this, id);
-            //record.GetType().GetProperty(PropertyInfo.Name)?.SetValue(record, (long)(Id)id);
         }
     }
 }

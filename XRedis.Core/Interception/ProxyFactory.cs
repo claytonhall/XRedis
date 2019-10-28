@@ -21,25 +21,11 @@ namespace XRedis.Core.Interception
             _options = new ProxyGenerationOptions(_resolver.GetInstance<IProxyGenerationHook>());
         }
 
-        //public object CreateClassProxy(Type type)
-        //{
-        //    if (_recordInterceptor == null)
-        //    {
-        //        _recordInterceptor = _resolver.GetInstance<IRecordInterceptor>();
-        //    }
-
-        //    return _generator.CreateClassProxy(type, _options, _recordInterceptor);
-        //}
-
-        public T CreateClassProxy<T>()
-            where T : class, IRecord
+        public TRecord CreateClassProxy<TRecord, TKey>()
+            where TRecord : class, IRecord<TKey>
         {
-            //if (_recordInterceptor == null)
-            //{
-            //    _recordInterceptor = _resolver.GetInstance<IRecordInterceptor<T>>();
-            //}
-            var recordInterceptor = _resolver.GetInstance<IRecordInterceptor<T>>();
-            return _generator.CreateClassProxy<T>(_options, recordInterceptor);
+            var recordInterceptor = _resolver.GetInstance<IRecordInterceptor<TRecord, TKey>>();
+            return _generator.CreateClassProxy<TRecord>(_options, recordInterceptor);
         }
     }
 }

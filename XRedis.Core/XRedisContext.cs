@@ -13,16 +13,6 @@ namespace XRedis.Core
         string ConnectionString { get; }
     }
 
-    public class XRedisConnection : IXRedisConnection
-    {
-        public string ConnectionString { get; }
-
-        public XRedisConnection(string connectionString)
-        {
-            ConnectionString = connectionString;
-        }
-    }
-
 
     public class XRedisContext
     {
@@ -43,10 +33,10 @@ namespace XRedis.Core
                 },
                  Lifestyle.Singleton, context => true);
             container.Register<IConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(connection.ConnectionString), Lifestyle.Singleton);
-            container.Register(typeof(IRecordInterceptor<>), typeof(RecordInterceptor<>), Lifestyle.Singleton);
-            container.Register(typeof(IRecordSet<>), typeof(RecordSet<>));
+            container.Register(typeof(IRecordInterceptor<,>), typeof(RecordInterceptor<,>), Lifestyle.Singleton);
             container.Register(typeof(IRecordSet<,>), typeof(RecordSet<,>));
-            container.Register(typeof(IRecordSetEnumerator<>), typeof(RecordSetEnumerator<>));
+            container.Register(typeof(IRecordSet<,,,>), typeof(RecordSet<,,,>));
+            container.Register(typeof(IRecordSetEnumerator<,>), typeof(RecordSetEnumerator<,>));
             container.Register<IResolver>(() => new Resolver(container), Lifestyle.Singleton);
             container.Register<IProxyFactory, ProxyFactory>(Lifestyle.Singleton);
             container.Register<IQueueListener, QueueListener>();
@@ -57,10 +47,10 @@ namespace XRedis.Core
             _resolver = container.GetInstance<IResolver>();
         }
 
-        public IRecordSet<T> CreateRecordSet<T>()
-            where T : class, IRecord
+        public IRecordSet<TRecord, TKey> CreateRecordSet<TRecord, TKey>()
+            where TRecord : class, IRecord<TKey>
         {
-            return _resolver.GetInstance<IRecordSet<T>>();
+            return _resolver.GetInstance<IRecordSet<TRecord, TKey>>();
         }
 
         public IResolver Resolver

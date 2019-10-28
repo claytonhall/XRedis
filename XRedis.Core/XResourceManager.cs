@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-//using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Transactions;
-using Castle.Core.Internal;
-using Castle.DynamicProxy.Generators;
 using XRedis.Core.Extensions;
 using StackExchange.Redis;
 using XRedis.Core.Fields;
@@ -38,8 +34,6 @@ namespace XRedis.Core
             _schemaHelper = schemaHelper;
         }
 
-        public bool IsAutoCommit { get; set; }
-
         public void StartTransaction()
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
@@ -58,9 +52,9 @@ namespace XRedis.Core
             _commitTransaction = db.CreateTransaction();
             SetTransactionState(transactionVersion, "COMMIT", _commitTransaction);
 
-            _rollbackTransaction.KeyDeleteAsync($"TRANSACTIONSTATE:{transactionVersion}");
+            _rollbackTransaction.KeyDeleteAsync($"TS:{transactionVersion}");
             _rollbackTransaction.KeyDeleteAsync($"TRANSACTION:{TransactionId}");
-            _commitTransaction.KeyDeleteAsync($"TRANSACTIONSTATE:{transactionVersion}");
+            _commitTransaction.KeyDeleteAsync($"TS:{transactionVersion}");
             _commitTransaction.KeyDeleteAsync($"TRANSACTION:{TransactionId}");
 
             Transaction.Current.EnlistVolatile(this, EnlistmentOptions.None);
@@ -82,21 +76,22 @@ namespace XRedis.Core
         public string GetTransactionState(long transactionVersion)
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
-            return db.StringGet($"TRANSACTIONSTATE:{transactionVersion}");
+            return db.StringGet($"TS:{transactionVersion}");
         }
 
         private void SetTransactionState(long transactionVersion, string state, ITransaction tran)
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
-            tran.StringSetAsync($"TRANSACTIONSTATE:{transactionVersion}", state);
+            tran.StringSetAsync($"TS:{transactionVersion}", state);
         }
 
         public string TransactionId { get; set; }
 
-        public object GetValue(IRecord record, PropertyInfo propertyInfo)
+        public object GetValue<TRecord, TKey>(TRecord record, PropertyInfo propertyInfo)
+            where TRecord : class, IRecord<TKey>
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
-            var recordKey = GetReadKey(record.GetRecordKey());
+            var recordKey = GetReadKey(record.GetRecordKey<TRecord, TKey>());
             
             var value = _transactionCache[recordKey][propertyInfo.Name] ?? db.HashGet(recordKey, propertyInfo.Name);
 
@@ -104,7 +99,8 @@ namespace XRedis.Core
             return convertedValue;
         }
 
-        public void SetValue(IRecord record, PropertyInfo propertyInfo, Id id, object value)
+        public void SetValue<TRecord, TKey>(TRecord record, PropertyInfo propertyInfo, IId id, object value)
+        where TRecord : class, IRecord<TKey>
         {
             _logger.Log($"Transaction:{TransactionVersion} Begin SetValue");
             IDatabase db = _connectionMultiplexer.GetDatabase();
@@ -118,18 +114,18 @@ namespace XRedis.Core
             if(id.Value.GetType().GetDefaultValue().Equals(id.Value))
             {
                 //firstField = true;
-                id = new Id(db.StringIncrement(record.GetIncrementKey()));
+                id = Id<TKey>.Parse(db.StringIncrement(record.GetIncrementKey()).ToString());
                 recordKey = record.GetRecordKey(id);
                 versionedRecordKey = SetRecordVersion(recordKey);
                 record.SetID(id);
 
                 //track its version!
-                tran.SortedSetAddAsync(versionedRecordKey.RecordKey.GetVersionTrackerKey(), versionedRecordKey.ToSortableString(), 0);
+                tran.SortedSetAddAsync(versionedRecordKey.RecordKey.GetVersionReferenceKey(), versionedRecordKey.ToSortableString(), 0);
 
                 //for rollback - delete the new internal key!
                 _rollbackTransaction.KeyDeleteAsync(versionedRecordKey);
                 //and the version tracking!
-                _rollbackTransaction.SortedSetRemoveAsync(versionedRecordKey.RecordKey.GetVersionTrackerKey(), versionedRecordKey.ToSortableString());
+                _rollbackTransaction.SortedSetRemoveAsync(versionedRecordKey.RecordKey.GetVersionReferenceKey(), versionedRecordKey.ToSortableString());
             }
             else
             {
@@ -183,8 +179,8 @@ namespace XRedis.Core
 
 
             //this only needs to happen on commit!
-            _commitTransaction.ListRemoveAsync("QUEUE", record.GetRecordKey());
-            _commitTransaction.ListLeftPushAsync("QUEUE", record.GetRecordKey());
+            _commitTransaction.ListRemoveAsync("QUEUE", recordKey);
+            _commitTransaction.ListLeftPushAsync("QUEUE", recordKey);
 
             UpdateIndexes(record, versionedRecordKey, tran);
 
@@ -196,14 +192,15 @@ namespace XRedis.Core
             _logger.Log($"Transaction:{TransactionVersion} - End SetValue");
         }
 
-        public TNavigationRecord GetNavigationRecord<TNavigationRecord>(IRecord record)
-        where TNavigationRecord : class, IRecord
+        public TParentRecord GetNavigationRecord<TRecord, TKey, TParentRecord, TParentKey>(TRecord record)
+        where TRecord : class, IRecord<TKey>
+        where TParentRecord : class, IRecord<TParentKey>
         {
-            var navigationRecordType = typeof(TNavigationRecord);
+            var navigationRecordType = typeof(TParentRecord);
 
-            TNavigationRecord retVal = default(TNavigationRecord);
+            TParentRecord retVal = default(TParentRecord);
             IDatabase db = _connectionMultiplexer.GetDatabase();
-            var fkValue = record.ForeignKey(navigationRecordType).GetValue(record);
+            var fkValue = record.ForeignKey(navigationRecordType).GetValue<TRecord, TKey>(record);
 
             //if (fkValue != default(Id))
             if (!fkValue.Value.GetType().GetDefaultValue().Equals(fkValue.Value))
@@ -215,7 +212,7 @@ namespace XRedis.Core
                 var readKey = GetReadKey(recordKey);
                 if (db.KeyExists(readKey))
                 {
-                    var navObj = _proxyFactory.CreateClassProxy<TNavigationRecord>();
+                    var navObj = _proxyFactory.CreateClassProxy<TParentRecord, TParentKey>();
                     navObj.SetID(fkValue);
                     retVal = navObj;
                 }
@@ -246,7 +243,6 @@ namespace XRedis.Core
                     var indexValue = indexValues[0];
 
                     //if this is the rowversion currently in scope for me...
-                    //if (GetReadKey(indexValue.RecordKey).Version <= indexValue.VersionedRecordKey.Version)
                     if (GetReadKey(indexValue.RecordKey).Version >= indexValue.VersionedRecordKey.Version)
                     {
                         //if yes, return it!
@@ -263,16 +259,17 @@ namespace XRedis.Core
             return retVal;
         }
 
-        public void Delete(IRecord record)
+        public void Delete<TRecord, TKey>(TRecord record)
+            where TRecord : class, IRecord<TKey>
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
-            var hashKeys = db.HashKeys(record.GetRecordKey());
+            var hashKeys = db.HashKeys(record.GetRecordKey<TRecord, TKey>());
             var tran = db.CreateTransaction();
             foreach (var hashKey in hashKeys)
             {
-                tran.AddCondition(Condition.HashExists(record.GetRecordKey(), hashKey));
+                tran.AddCondition(Condition.HashExists(record.GetRecordKey<TRecord, TKey>(), hashKey));
             }
-            tran.HashDeleteAsync(record.GetRecordKey(), hashKeys);
+            tran.HashDeleteAsync(record.GetRecordKey<TRecord, TKey>(), hashKeys);
 
             //add code to delete related indexes!
 
@@ -293,7 +290,7 @@ namespace XRedis.Core
         {
             IDatabase db = _connectionMultiplexer.GetDatabase();
 
-            var versionReferenceLookupTable = key.GetVersionTrackerKey().ToString();
+            var versionReferenceLookupTable = key.GetVersionReferenceKey().ToString();
             var unversionedKeyName = key.ToSortableString();
             var currentVersionKeyName = key.GetVersionedRecordKey(TransactionVersion).ToSortableString();
 
@@ -303,7 +300,7 @@ namespace XRedis.Core
                 var internalKey = SetRecordVersion(key);
                 db.SortedSetAdd(versionReferenceLookupTable, internalKey.ToSortableString(), 0);
                 internalKeyValue = internalKey;
-                _rollbackTransaction.SortedSetRemoveAsync(key.GetVersionTrackerKey(), internalKey.ToSortableString());
+                _rollbackTransaction.SortedSetRemoveAsync(key.GetVersionReferenceKey(), internalKey.ToSortableString());
             }
 
             _logger.Log($"{TransactionVersion} - GetReadKey - {internalKeyValue}");
@@ -316,7 +313,7 @@ namespace XRedis.Core
             WriteKeyResult result = new WriteKeyResult();
             IDatabase db = _connectionMultiplexer.GetDatabase();
 
-            var versionTrackerKey = key.GetVersionTrackerKey();
+            var versionTrackerKey = key.GetVersionReferenceKey();
 
             var keyFromDbString = db.SortedSetRangeByValue(versionTrackerKey, key.ToSortableString(), key.ToSortableString().NextGreaterValue()).LastOrDefault();
             if (keyFromDbString.HasValue)
@@ -386,7 +383,7 @@ namespace XRedis.Core
             UpdateIndexes(record, newKey, tran);
 
             //track its version!
-            tran.SortedSetAddAsync(newKey.RecordKey.GetVersionTrackerKey(), newKey.ToSortableString(), 0);
+            tran.SortedSetAddAsync(newKey.RecordKey.GetVersionReferenceKey(), newKey.ToSortableString(), 0);
 
             if (!tran.Execute())
             {
@@ -396,14 +393,14 @@ namespace XRedis.Core
             //for rollback - delete the new internal key!
             _rollbackTransaction.KeyDeleteAsync(newKey);
             //and the version tracking!
-            _rollbackTransaction.SortedSetRemoveAsync(newKey.RecordKey.GetVersionTrackerKey(), newKey.ToString());
+            _rollbackTransaction.SortedSetRemoveAsync(newKey.RecordKey.GetVersionReferenceKey(), newKey.ToString());
 
             //for commit - delete the old internal key!
             //not sure... could another transaction still be using this?
             //delete indexes!
             DeleteIndexes(record, oldKey, tran);
             _commitTransaction.KeyDeleteAsync(oldKey);
-            _commitTransaction.SortedSetRemoveAsync(oldKey.RecordKey.GetVersionTrackerKey(), oldKey.ToString());
+            _commitTransaction.SortedSetRemoveAsync(oldKey.RecordKey.GetVersionReferenceKey(), oldKey.ToString());
         }
 
         private void DeleteIndexes(IRecord record, VersionedRecordKey versionedRecordKey, ITransaction tran)
@@ -497,12 +494,13 @@ namespace XRedis.Core
         private object GetDefault(Type t)
         {
             return this.GetType()
-                        .GetMethod(nameof(GetDefaultGeneric))
+                        .GetMethods()
+                        .Single(m=>m.Name == nameof(GetDefault) && m.IsGenericMethod)
                         ?.MakeGenericMethod(t)
                         .Invoke(this, null);
         }
 
-        public T GetDefaultGeneric<T>()
+        public T GetDefault<T>()
         {
             return default(T);
         }

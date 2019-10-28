@@ -11,7 +11,7 @@ using Index = XRedis.Core.Fields.Indexes.Index;
 
 namespace XRedis.Data
 {
-    public class Company : IRecord
+    public class Company : IRecord<long>
     {
         public virtual long CompanyId { get; set; }
 
@@ -24,11 +24,11 @@ namespace XRedis.Data
         [Index("CreatedDate", typeof(Company))]
         public virtual DateTime CreatedDate { get; set; }
 
-        public virtual IRecordSet<Associate, Company> Associates { get; set; }
+        public virtual IRecordSet<Associate, long, Company, long> Associates { get; set; }
     } 
 
 
-    public class Associate : IRecord
+    public class Associate : IRecord<long>
     {
         [PrimaryKey(typeof(Associate))]
         public virtual long AssociateId { get; set; }

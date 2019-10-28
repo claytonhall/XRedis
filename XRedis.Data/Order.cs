@@ -6,7 +6,7 @@ using XRedis.Core.Fields;
 
 namespace XRedis.Data
 {
-    public class Order : IRecord
+    public class Order : IRecord<long>
     {
         public long OrderID { get; set; }
 

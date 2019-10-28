@@ -28,23 +28,29 @@ namespace XRedis.Core.Keys
 
         public string TableType { get; set; }
 
-        public Id Id { get; set; }
+        public IId Id { get; set; }
 
         public RecordKey(string type, string id)
         {
             TableType = type;
-            Id = new Id(id);  //Id<long>.Parse(id);
+            //fix....
+            Id = Id<long>.Parse(id);
         }
 
-        public RecordKey(Type tableType, Id id) : this(tableType.GetUnproxiedType().Name, id.ToString())
+        public RecordKey(Type tableType, IId id) : this(tableType.GetUnproxiedType().Name, id.ToString())
         {
         }
 
-        public RecordKey(IRecord record, Id id) :this(record.GetType(), id) { }
+        public RecordKey(IRecord record, IId id) :this(record.GetType(), id) { }
 
-        public RecordKey(IRecord record) : this(record, record.GetID()){ }
+        //public RecordKey(IRecord record) : this(record, record.GetID()){ }
 
-       
+        public static RecordKey Create<TRecord, TKey>(TRecord record)
+            where TRecord : class, IRecord<TKey>
+        {
+            return new RecordKey(record, record.GetID<TRecord, TKey>());
+        }
+
 
         public static implicit operator RedisKey(RecordKey key) => key.ToString();
         public static implicit operator RecordKey(RedisKey key) => RecordKey.Parse(key);

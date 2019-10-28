@@ -10,16 +10,16 @@ namespace XRedis.Blazor.Data
     {
         public DemoContext(IXRedisConnection connection) : base(connection)
         {
-            Tpas = CreateRecordSet<Tpa>();
-            Employers = CreateRecordSet<Employer>();
+            Tpas = CreateRecordSet<Tpa, long>();
+            Employers = CreateRecordSet<Employer, long>();
         }
 
-        public virtual IRecordSet<Tpa> Tpas { get; set; }
-        public virtual IRecordSet<Employer> Employers { get; set; }
+        public virtual IRecordSet<Tpa, long> Tpas { get; set; }
+        public virtual IRecordSet<Employer, long> Employers { get; set; }
 
     }
 
-    public class Tpa : IRecord
+    public class Tpa : IRecord<long>
     {
         public virtual long TpaId { get; set; }
 
@@ -29,7 +29,7 @@ namespace XRedis.Blazor.Data
         public virtual IRecordSet<Employer, Tpa> Employers { get; set; }
     }
 
-    public class Employer : IRecord
+    public class Employer : IRecord<long>
     {
         public virtual long EmployerId { get; set; }
 

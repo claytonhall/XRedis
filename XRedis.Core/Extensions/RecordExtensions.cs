@@ -17,30 +17,31 @@ namespace XRedis.Core.Extensions
 {
     public static class RecordExtensions
     {
-        private static ISchemaHelper _schemaHelper => Resolver.Instance.GetInstance<ISchemaHelper>();
+        private static ISchemaHelper SchemaHelper => Resolver.Instance.GetInstance<ISchemaHelper>();
 
-        public static PrimaryKey PrimaryKey<T>(this T record) => _schemaHelper.PrimaryKey<T>(record);
-        public static IEnumerable<ForeignKey> ForeignKeys<T>(this T record) => _schemaHelper.ForeignKeys<T>(record);
-        public static IEnumerable<Index> Indexes<T>(this T record) => _schemaHelper.Indexes<T>(record);
+        public static PrimaryKey PrimaryKey<T>(this T record) => SchemaHelper.PrimaryKey<T>(record);
+        public static IEnumerable<ForeignKey> ForeignKeys<T>(this T record) => SchemaHelper.ForeignKeys<T>(record);
+        public static IEnumerable<Index> Indexes<T>(this T record) => SchemaHelper.Indexes<T>(record);
 
-        public static Id GetID<T>(this T record)
-            where T : IRecord
+        public static IId GetID<TRecord, TKey>(this TRecord record)
+            where TRecord : class, IRecord<TKey>
         {
-            return record.PrimaryKey().GetValue(record);
+            return record.PrimaryKey()
+                .GetValue<TRecord, TKey>(record);
         }
 
-        public static void SetID<T>(this T record, Id id)
+        public static void SetID<T>(this T record, IId id)
             where T : IRecord
         {
             record.PrimaryKey().SetValue(record, id);
         }
 
-        public static Id GetIDValue<T>(this T record, IKeyField keyField)
+        public static IId GetIDValue<TRecord, TKey>(this TRecord record, IKeyField keyField)
         {
-            return new Id(record.GetType().GetProperty(keyField.PropertyInfo.Name)?.GetValue(record));
+            return Id<TKey>.Parse(record.GetType().GetProperty(keyField.PropertyInfo.Name)?.GetValue(record).ToString());
         }
 
-        public static void SetIDValue<T>(this T record, IKeyField keyField, Id id)
+        public static void SetIDValue<T>(this T record, IKeyField keyField, IId id)
         {
             var property = record.GetType().GetProperty(keyField.PropertyInfo.Name);
             var idValue = id.Value;
